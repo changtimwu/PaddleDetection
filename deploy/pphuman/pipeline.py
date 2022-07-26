@@ -16,6 +16,8 @@ import os
 import yaml
 import glob
 from collections import defaultdict
+from pathlib import Path
+import json
 
 import cv2
 import numpy as np
@@ -307,7 +309,7 @@ class PipePredictor(object):
         self.pipe_timer = PipeTimer()
         self.file_name = None
         self.collector = DataCollector()
-
+        self.infres = []
         if not is_video:
             det_cfg = self.cfg['DET']
             model_dir = det_cfg['model_dir']
@@ -467,6 +469,25 @@ class PipePredictor(object):
             if self.cfg['visual']:
                 self.visualize_image(batch_file, batch_input, self.pipeline_res)
 
+    def collect_mot_result( self, frame_id, boxes, scores, ids):
+        time_offt = frame_id * 1.0 /self.vidinf['fps']
+        #{'frame_id': 1, 'time_offt': 0.034482758620689655, 'boxes': defaultdict(<class 'list'>, {0: [array([251.40646362, 155.43778992,  72.00189209, 123.06819153]), array([197.36724854, 156.90553284,  59.64395142, 108.21913147])]}), 'ids': defaultdict(<class 'list'>, {0: [1, 2]}), 'scores': defaultdict(<class 'list'>, {0: [0.8618891, 0.7699797]})}
+        nboxes = []
+        for box in boxes:
+            nboxes.append( [float(npnum) for npnum in box.tolist() ])
+        nscores = [ float(sc) for sc in scores]
+        infr = { 'frame_id': frame_id, 'time_offt': time_offt, 'boxes':nboxes, 'ids': ids, 'scores': nscores}
+        #print(infr)
+        self.infres.append(infr)
+
+    def save_mot_result( self):
+        vidinf = self.vidinf.copy()
+        vidinf['frames'] = self.infres
+        jobj = json.dumps( vidinf,  indent = 4)
+        jfn = Path(self.file_name).with_suffix('.json')
+        with open( os.path.join(self.output_dir, jfn), 'w') as outfile:
+            outfile.write(jobj)
+
     def predict_video(self, video_file):
         # mot
         # mot -> attr
@@ -480,7 +501,7 @@ class PipePredictor(object):
         fps = int(capture.get(cv2.CAP_PROP_FPS))
         frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         print("video fps: %d, frame_count: %d" % (fps, frame_count))
-
+        self.vidinf = { 'inftype': 'person_detect', 'width':width, 'height':height, 'fps':fps, 'frame_count':frame_count}
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         out_path = os.path.join(self.output_dir, video_out_name)
@@ -524,6 +545,8 @@ class PipePredictor(object):
             boxes, scores, ids = res[0]  # batch size = 1 in MOT
             mot_result = (frame_id + 1, boxes[0], scores[0],
                           ids[0])  # single class
+            self.collect_mot_result( frame_id+1, boxes[0], scores[0], ids[0])
+            #print('mot_result=', mot_result)
             statistic = flow_statistic(
                 mot_result, self.secs_interval, self.do_entrance_counting,
                 video_fps, entrance, id_set, interval_id_set, in_id_list,
@@ -628,7 +651,7 @@ class PipePredictor(object):
             frame_id += 1
 
             if self.cfg['visual']:
-                _, _, fps = self.pipe_timer.get_total_time()
+                tol_time, avglat, fps = self.pipe_timer.get_total_time()
                 im = self.visualize_video(frame, self.pipeline_res, frame_id,
                                           fps, entrance, records,
                                           center_traj)  # visualize
@@ -639,6 +662,7 @@ class PipePredictor(object):
                         break
 
         writer.release()
+        self.save_mot_result()
         print('save result to {}'.format(out_path))
 
     def visualize_video(self,
