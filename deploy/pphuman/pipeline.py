@@ -497,6 +497,7 @@ class PipePredictor(object):
         out_id_list = list()
         prev_center = dict()
         records = list()
+        #TODO: entrace line should be adjustable instead of hardcode
         entrance = [0, height / 2., width, height / 2.]
         video_fps = fps
 
