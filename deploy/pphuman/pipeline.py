@@ -471,14 +471,23 @@ class PipePredictor(object):
             if self.cfg['visual']:
                 self.visualize_image(batch_file, batch_input, self.pipeline_res)
 
-    def collect_mot_result( self, frame_id, boxes, scores, ids):
+    def collect_mot_result( self, motresult, stats):
+        frame_id, boxes, scores, ids = motresult
         time_offt = frame_id * 1.0 /self.vidinf['fps']
         #{'frame_id': 1, 'time_offt': 0.034482758620689655, 'boxes': defaultdict(<class 'list'>, {0: [array([251.40646362, 155.43778992,  72.00189209, 123.06819153]), array([197.36724854, 156.90553284,  59.64395142, 108.21913147])]}), 'ids': defaultdict(<class 'list'>, {0: [1, 2]}), 'scores': defaultdict(<class 'list'>, {0: [0.8618891, 0.7699797]})}
         nboxes = []
         for box in boxes:
             nboxes.append( [float(npnum) for npnum in box.tolist() ])
         nscores = [ float(sc) for sc in scores]
-        infr = { 'frame_id': frame_id, 'time_offt': time_offt, 'boxes':nboxes, 'ids': ids, 'scores': nscores}
+        cntids = list(stats['id_set'])
+        infr = {
+            'frame_id': frame_id, 'time_offt': time_offt, 'boxes':nboxes, 'ids': ids, 'scores': nscores,
+            'entrance': {
+                'ids': stats['id_set'],
+                'in': stats['in_id_list'],
+                'out': stats['out_id_list'] 
+            }
+        }
         #print(infr)
         self.infres.append(infr)
 
@@ -548,14 +557,14 @@ class PipePredictor(object):
 
             # flow_statistic only support single class MOT
             boxes, scores, ids = res[0]  # batch size = 1 in MOT
-            mot_result = (frame_id + 1, boxes[0], scores[0],
-                          ids[0])  # single class
-            self.collect_mot_result( frame_id, boxes[0], scores[0], ids[0])
+            #TODO: figure out why + 1
+            mot_result = (frame_id + 1, boxes[0], scores[0], ids[0])  # single class
             #print('mot_result=', mot_result)
             statistic = flow_statistic(
                 mot_result, self.secs_interval, self.do_entrance_counting,
                 video_fps, entrance, id_set, interval_id_set, in_id_list,
                 out_id_list, prev_center, records)
+            self.collect_mot_result( mot_result, statistic)
             records = statistic['records']
 
             # nothing detected
