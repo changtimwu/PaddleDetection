@@ -3,6 +3,7 @@ attr_thresh: 0.5
 kpt_thresh: 0.2
 visual: True
 warmup_frame: 50
+stopat_frame: 100
 
 DET:
   model_dir: output_inference/mot_ppyoloe_l_36e_pipeline/

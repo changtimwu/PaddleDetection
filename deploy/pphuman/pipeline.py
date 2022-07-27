@@ -108,6 +108,8 @@ class Pipeline(object):
         self.is_video = False
         self.output_dir = output_dir
         self.vis_result = cfg['visual']
+        if not 'stopat_frame' in cfg:
+            cfg['stopat_frame'] = math.inf
         self.input = self._parse_input(image_file, image_dir, video_file,
                                        video_dir, camera_id)
         if self.multi_camera:
@@ -501,7 +503,7 @@ class PipePredictor(object):
         fps = int(capture.get(cv2.CAP_PROP_FPS))
         frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         print("video fps: %d, frame_count: %d" % (fps, frame_count))
-        self.vidinf = { 'inftype': 'person_detect', 'width':width, 'height':height, 'fps':fps, 'frame_count':frame_count}
+        self.vidinf = { 'inftype': 'person_detect', 'width':width, 'height':height, 'fps':fps, 'frame_count':0}
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         out_path = os.path.join(self.output_dir, video_out_name)
@@ -525,6 +527,8 @@ class PipePredictor(object):
         while (1):
             if frame_id % 10 == 0:
                 print('frame id: ', frame_id)
+            if frame_id > self.cfg['stopat_frame']:
+                break
             ret, frame = capture.read()
             if not ret:
                 break
@@ -545,7 +549,7 @@ class PipePredictor(object):
             boxes, scores, ids = res[0]  # batch size = 1 in MOT
             mot_result = (frame_id + 1, boxes[0], scores[0],
                           ids[0])  # single class
-            self.collect_mot_result( frame_id+1, boxes[0], scores[0], ids[0])
+            self.collect_mot_result( frame_id, boxes[0], scores[0], ids[0])
             #print('mot_result=', mot_result)
             statistic = flow_statistic(
                 mot_result, self.secs_interval, self.do_entrance_counting,
@@ -660,8 +664,8 @@ class PipePredictor(object):
                     cv2.imshow('PPHuman', im)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
-
         writer.release()
+        self.vidinf['frame_count']=frame_id
         self.save_mot_result()
         print('save result to {}'.format(out_path))
 
