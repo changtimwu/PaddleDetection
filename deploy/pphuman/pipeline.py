@@ -479,14 +479,13 @@ class PipePredictor(object):
         for box in boxes:
             nboxes.append( [float(npnum) for npnum in box.tolist() ])
         nscores = [ float(sc) for sc in scores]
-        infr = {
-            'frame_id': frame_id, 'time_offt': time_offt, 'boxes':nboxes, 'ids': ids, 'scores': nscores,
-            'entrance': {
+        infr = { 'frame_id': frame_id, 'time_offt': time_offt, 'boxes':nboxes, 'ids': ids, 'scores': nscores }
+        if self.do_entrance_counting:
+            infr['entrance'] = {
                 'all': list(stats['id_set']),
                 'in': stats['in_id_list'],
-                'out': stats['out_id_list'] 
+                'out': stats['out_id_list']
             }
-        }
         #print(infr)
         self.infres.append(infr)
 
@@ -530,9 +529,10 @@ class PipePredictor(object):
         records = list()
         #TODO: should support multiple entrances
         entrance = [0, height / 2., width, height / 2.]
-        if 'entrance' in self.cfg:
-            entrance = self.cfg['entrance']
-        self.vidinf['entrance_line'] = entrance
+        if self.do_entrance_counting:
+            if 'entrance' in self.cfg:
+                entrance = self.cfg['entrance']
+            self.vidinf['entrance_line'] = entrance
         video_fps = fps
         while (1):
             if frame_id % 10 == 0:
