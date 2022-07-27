@@ -473,7 +473,7 @@ class PipePredictor(object):
 
     def collect_mot_result( self, motresult, stats):
         frame_id, boxes, scores, ids = motresult
-        time_offt = frame_id * 1.0 /self.vidinf['fps']
+        time_offt = frame_id * 1.0 /self.vidinf['fps'] # this is so wrong due to inaccurate fps.
         #{'frame_id': 1, 'time_offt': 0.034482758620689655, 'boxes': defaultdict(<class 'list'>, {0: [array([251.40646362, 155.43778992,  72.00189209, 123.06819153]), array([197.36724854, 156.90553284,  59.64395142, 108.21913147])]}), 'ids': defaultdict(<class 'list'>, {0: [1, 2]}), 'scores': defaultdict(<class 'list'>, {0: [0.8618891, 0.7699797]})}
         nboxes = []
         for box in boxes:
