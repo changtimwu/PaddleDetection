@@ -70,14 +70,15 @@ class DataCollector(object):
             "actions": []
         }
         self.collector = {}
+        self.frame_results = []
 
     def append(self, frameid, Result):
+        self.frame_results.append(Result)
         mot_res = Result.get('mot')
         attr_res = Result.get('attr')
         kpt_res = Result.get('kpt')
         action_res = Result.get('action')
         reid_res = Result.get('reid')
-
         rects = reid_res['rects'] if reid_res is not None else mot_res['boxes']
         for idx, mot_item in enumerate(rects):
             ids = int(mot_item[0])
@@ -100,6 +101,9 @@ class DataCollector(object):
                     idx])
                 self.collector[ids]["qualities"].append(reid_res['qualities'][
                     idx])
-
+    #ID based result
     def get_res(self):
         return self.collector
+    #frame based result
+    def get_frame_res(self)
+        return self.frame_results
