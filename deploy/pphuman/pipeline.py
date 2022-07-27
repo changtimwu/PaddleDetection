@@ -520,10 +520,11 @@ class PipePredictor(object):
         out_id_list = list()
         prev_center = dict()
         records = list()
-        #TODO: entrace line should be adjustable instead of hardcode
+        #TODO: should support multiple entrances
         entrance = [0, height / 2., width, height / 2.]
+        if 'entrance' in self.cfg:
+            entrance = self.cfg['entrance']
         video_fps = fps
-
         while (1):
             if frame_id % 10 == 0:
                 print('frame id: ', frame_id)
