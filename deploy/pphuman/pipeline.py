@@ -208,10 +208,13 @@ class Pipeline(object):
                 self.input,
                 mtmct_vis=self.vis_result,
                 output_dir=self.output_dir)
-
         else:
             self.predictor.run(self.input)
-
+            outdir = os.getenv('OUTPUTDIR')
+            inputfn = self.input
+            afn = Path( inputfn).with_suffix('.json').name
+            jfn = Path( outdir).joinpath(afn)
+            self.predictor.collector.save_frame_res( jfn)
 
 class PipePredictor(object):
     """
@@ -416,6 +419,13 @@ class PipePredictor(object):
     def get_result(self):
         return self.collector.get_res()
 
+    def dump_result(self, result):
+        for pid in result.keys():
+            pres = result[pid]
+            [frames, rects, attrs, kpts,features,qualities,actions] = [pres[k] for k in ['frames', 'rects', 'attrs', 'kpts', 'features', 'qualities', 'actions']]
+            print( f'pid {pid}: {len(frames)} frames, {len(rects)} attrs, {len(kpts)} kpts, {len(actions)} actions')
+            print('attrs:', attrs)
+
     def run(self, input):
         if self.is_video:
             self.predict_video(input)
@@ -463,7 +473,6 @@ class PipePredictor(object):
 
                 attr_res = {'output': attr_res_list}
                 self.pipeline_res.update(attr_res, 'attr')
-
             self.pipe_timer.img_num += len(batch_input)
             if i > self.warmup_frame:
                 self.pipe_timer.total_time.end()
@@ -471,7 +480,7 @@ class PipePredictor(object):
             if self.cfg['visual']:
                 self.visualize_image(batch_file, batch_input, self.pipeline_res)
 
-    def collect_mot_result( self, motresult, stats):
+    def collect_mot_stats( self, motresult, stats):
         frame_id, boxes, scores, ids = motresult
         time_offt = frame_id * 1.0 /self.vidinf['fps'] # this is so wrong due to inaccurate fps.
         #{'frame_id': 1, 'time_offt': 0.034482758620689655, 'boxes': defaultdict(<class 'list'>, {0: [array([251.40646362, 155.43778992,  72.00189209, 123.06819153]), array([197.36724854, 156.90553284,  59.64395142, 108.21913147])]}), 'ids': defaultdict(<class 'list'>, {0: [1, 2]}), 'scores': defaultdict(<class 'list'>, {0: [0.8618891, 0.7699797]})}
@@ -489,13 +498,6 @@ class PipePredictor(object):
         #print(infr)
         self.infres.append(infr)
 
-    def save_mot_result( self):
-        vidinf = self.vidinf.copy()
-        vidinf['frames'] = self.infres
-        jobj = json.dumps( vidinf,  indent = 4)
-        jfn = Path(self.file_name).with_suffix('.json')
-        with open( os.path.join(self.output_dir, jfn), 'w') as outfile:
-            outfile.write(jobj)
 
     def predict_video(self, video_file):
         # mot
@@ -564,7 +566,7 @@ class PipePredictor(object):
                 mot_result, self.secs_interval, self.do_entrance_counting,
                 video_fps, entrance, id_set, interval_id_set, in_id_list,
                 out_id_list, prev_center, records)
-            self.collect_mot_result( mot_result, statistic)
+            self.collect_mot_stats( mot_result, statistic)
             records = statistic['records']
 
             # nothing detected
@@ -676,8 +678,8 @@ class PipePredictor(object):
                         break
         writer.release()
         self.vidinf['frame_count']=frame_id
-        self.save_mot_result()
-        print('save result to {}'.format(out_path))
+        self.vidinf['frames'] = self.infres
+        self.collector.set_extra_info( self.vidinf )
 
     def visualize_video(self,
                         image,
