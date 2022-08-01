@@ -14,7 +14,9 @@
 
 import os
 import copy
-
+import numpy as np
+import json
+from pathlib import Path
 
 class Result(object):
     def __init__(self):
@@ -37,7 +39,81 @@ class Result(object):
 
     def clear(self, name):
         self.res_dict[name].clear()
+    def export(self):
+        #we have to deepcopy since many values are shared between frames
+        return copy.deepcopy( self.res_dict)
+    def save(self, fn):
+        with open(fn, 'wb') as f:
+            np.save( f, self.res_dict)
+    def load( self, fn):
+        with open(fn, 'rb') as f:
+            self.res_dict = np.load( f, allow_pickle=True)
 
+def npdefault(obj):
+    if type(obj).__module__ == np.__name__:
+        if isinstance(obj, np.ndarray):
+            if obj.dtype in [ np.dtype('float64'), np.dtype('float32')]:
+                pril = np.array( obj,int).tolist()
+            else:
+                pril = obj.tolist()
+            return pril
+        else:
+            return obj.item()
+        raise TypeError('Unknown type:', type(obj))
+
+def fixkpt( kpt):
+    mpkps = kpt['keypoint']
+    #its dimention is 3.  frame ->  person -> point -> coordinate
+    mpkps = [[ np.array( pkp,int) for pkp in pkps] for pkps in mpkps]
+    kpt['keypoint'] = mpkps
+
+def fixmot( mot):
+    if type(mot['boxes'])==list:
+        return
+    #overwrite original 'boxes'
+    [ids, scores, boxes] = [[], [], []]
+    for obox in mot['boxes']:
+        bx = [int(b) for b in obox]
+        ids.append( bx[0])
+        scores.append(  bx[1])
+        boxes.append( bx[3:])
+    mot['boxes'] = boxes
+    return ids
+    #mot['scores'] = scores
+
+def pattr2dic( atrs):
+    """
+    [
+        "Male",
+        "Age18-60",
+        "Side",
+        "Glasses: False",
+        "Hat: False",
+        "HoldObjectsInFront: False",
+        "No bag",
+        "Upper: LongSleeve",
+        "Lower:  Trousers",
+        "No boots"
+    ],
+    """
+    return {
+        'gender': atrs[0],
+        'age': atrs[1][3:],
+        'side': atrs[2]=='Side',
+        'glasses': atrs[3].split(': ')[1]=='True',
+        'hat': atrs[4].split(': ')[1]=='True',
+        'holdobjectsinfront': atrs[5].split(': ')[1]=='True',
+        'bag': atrs[6].split(' ')[0]!='No',
+        'upper': atrs[7].split(': ')[1],
+        'lower': atrs[8].split(': ')[1],
+        'boots': atrs[9].split(' ')[0]!="No"
+    }
+
+def fixattr( rawatr):
+    pattrs = rawatr['output']
+    pdics = [ pattr2dic(pattr) for pattr in pattrs ]
+    rawatr['people'] = pdics
+    del rawatr['output']
 
 class DataCollector(object):
     """
@@ -105,5 +181,30 @@ class DataCollector(object):
     def get_res(self):
         return self.collector
     #frame based result
-    def get_frame_res(self)
+    def get_frame_res(self):
         return self.frame_results
+
+    def _merge_extra( self, infrfrms):
+        keys = [ 'inftype', 'width', 'height', 'fps', 'frame_count', 'entrance_line']
+        vidinf = { k:self.exinf[k] for k in self.exinf.keys() if k in keys }
+        for ( exfrm, infrfrm) in zip( self.exinf['frames'], infrfrms):
+            if 'entrance' in exfrm:
+                infrfrm['entrance'] = exfrm['entrance']
+        vidinf['frames'] = infrfrms
+        return vidinf
+    def save_frame_res(self, dstfn):
+        frmres = self.frame_results
+        frminfs=[]
+        for fr in frmres:
+            frminf = fr.export()
+            fixkpt( frminf['kpt'])
+            ids = fixmot( frminf['mot'])
+            fixattr( frminf['attr'])
+            frminf['ids'] = ids
+            frminfs.append(frminf)
+        vidinf = self._merge_extra( frminfs)
+        jobj = json.dumps( vidinf, indent = 4, default=npdefault)
+        with open( dstfn, 'w') as outfile:
+            outfile.write(jobj)
+    def set_extra_info(self, exinf):
+        self.exinf = exinf
