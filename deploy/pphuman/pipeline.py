@@ -505,11 +505,10 @@ class PipePredictor(object):
         # mot -> pose -> action
         capture = cv2.VideoCapture(video_file)
         video_out_name = 'output.mp4' if self.file_name is None else self.file_name
-
         # Get Video info : resolution, fps, frame count
         width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = int(capture.get(cv2.CAP_PROP_FPS))
+        fps = capture.get(cv2.CAP_PROP_FPS)
         frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         print("video fps: %d, frame_count: %d" % (fps, frame_count))
         self.vidinf = { 'inftype': 'person_detect', 'width':width, 'height':height, 'fps':fps, 'frame_count':0}
