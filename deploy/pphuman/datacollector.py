@@ -149,7 +149,7 @@ class DataCollector(object):
         self.frame_results = []
 
     def append(self, frameid, Result):
-        self.frame_results.append(Result)
+        self.frame_results.append(Result.export())
         mot_res = Result.get('mot')
         attr_res = Result.get('attr')
         kpt_res = Result.get('kpt')
@@ -192,8 +192,7 @@ class DataCollector(object):
     def save_frame_res(self, dstfn):
         frmres = self.frame_results
         frminfs=[]
-        for fr in frmres:
-            frminf = fr.export()
+        for frminf in frmres:
             fixkpt( frminf['kpt'])
             ids = fixmot( frminf['mot'])
             fixattr( frminf['attr'])
