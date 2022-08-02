@@ -180,9 +180,6 @@ class DataCollector(object):
     #ID based result
     def get_res(self):
         return self.collector
-    #frame based result
-    def get_frame_res(self):
-        return self.frame_results
 
     def _merge_extra( self, infrfrms):
         keys = [ 'inftype', 'width', 'height', 'fps', 'frame_count', 'entrance_line']
