@@ -76,7 +76,9 @@ def fixmot( mot):
         bx = [int(b) for b in obox]
         ids.append( bx[0])
         scores.append(  bx[1])
-        boxes.append( bx[3:])
+        [ x1, y1, x2, y2] = bx[3:7]
+        xywh = [ x1, y1, x2 - x1, y2 - y1]
+        boxes.append( xywh )
     mot['boxes'] = boxes
     return ids
     #mot['scores'] = scores
